@@ -1,12 +1,41 @@
-import { Hono } from 'hono';
+import { Context, Env, Hono } from 'hono';
+import { BlankInput } from 'hono/types';
 
 export const actorRoutes = new Hono();
+
+const buildWhere = (c:Context<Env, "/", BlankInput>) => {
+	const { ethinicity, nationality, birthPlace, hairColor, naturalBoobs, drilling, tattoos } = c.req.query()
+	let where = '';
+	if( ethinicity && typeof ethinicity === "string" ){
+		where += ` AND Ethinicity = '${ethinicity}' `;
+	}
+	if( nationality && typeof nationality === "string"){
+		where += ` AND Nationality = '${nationality}' `;
+	}
+	if( birthPlace && typeof birthPlace === "string"){
+		where += ` AND BirthPlace = '${birthPlace}' `;
+	}
+	if( hairColor && typeof hairColor === "string"){
+		where += ` AND HairColor = '${hairColor}' `;
+	}
+	if( naturalBoobs && typeof naturalBoobs === "boolean"){
+		where += ` AND NaturalBoobs = '${naturalBoobs?"true":"false"}' `;
+	}
+	if( drilling && typeof drilling === "boolean"){
+		where += ` AND Drilling = '${drilling?"true":"false"}' `;
+	}
+	if( tattoos && typeof tattoos === "boolean"){
+		where += ` AND Tattoos = '${tattoos?"true":"false"}' `;
+	}
+	return where;
+}
 
 actorRoutes.get("/", async (c) => {
 	try {
 		const page = Number(c.req.query('page') || 1);
 		const limit = Number(c.req.query('limit') || 10);
-		let { results } = await c.env.DB.prepare("SELECT * FROM Actor LIMIT ? OFFSET ?").bind(limit, (page - 1) * limit).all();
+		const where = buildWhere(c);
+		let { results } = await c.env.DB.prepare(` SELECT * FROM Actor WHERE 1=1 ${where} LIMIT ? OFFSET ?` ).bind(limit, (page - 1) * limit).all();
 		return c.json(results);
 	} catch (e) {
 		console.log(e);

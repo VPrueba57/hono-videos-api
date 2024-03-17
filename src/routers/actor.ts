@@ -3,39 +3,59 @@ import { BlankInput } from 'hono/types';
 
 export const actorRoutes = new Hono();
 
-const buildWhere = (c:Context<Env, "/", BlankInput>) => {
-	const { ethinicity, nationality, birthPlace, hairColor, naturalBoobs, drilling, tattoos } = c.req.query()
-	let where = '';
-	if( ethinicity && typeof ethinicity === "string" ){
-		where += ` AND Ethinicity = '${ethinicity}' `;
+const CONST_ALLOWED_BOOLEANS_VALUES = ['1', '0'];
+
+const buildWhere = (c: Context<Env, "/", BlankInput>) => {
+
+	const { name, ethnicity, nationality, birthPlace, hairColor, naturalBoobs, drilling, tattoos } = c.req.query();
+
+	const conditions: any[] = [];
+	const values: any[] = [];
+
+	const addCondition = (field: string, value: string) => {
+		if (value && typeof value === "string") {
+			conditions.push(`${field} = ?`);
+			values.push(value);
+		}
+	};
+
+	const addBooleanCondition = (field: string, value: string) => {
+		if (value && typeof value === "string" && CONST_ALLOWED_BOOLEANS_VALUES.includes(value)) {
+			console.log(value)
+			conditions.push(`${field} = ?`);
+			values.push(value==='1' ? true : false);
+		}
+	};
+
+	const addLikeCondition = (field: string, value: string) => {
+		if (value && typeof value === "string") {
+			conditions.push(`${field} like ?`);
+			values.push(`%${value}%`);
+		}
 	}
-	if( nationality && typeof nationality === "string"){
-		where += ` AND Nationality = '${nationality}' `;
-	}
-	if( birthPlace && typeof birthPlace === "string"){
-		where += ` AND BirthPlace = '${birthPlace}' `;
-	}
-	if( hairColor && typeof hairColor === "string"){
-		where += ` AND HairColor = '${hairColor}' `;
-	}
-	if( naturalBoobs && typeof naturalBoobs === "boolean"){
-		where += ` AND NaturalBoobs = '${naturalBoobs?"true":"false"}' `;
-	}
-	if( drilling && typeof drilling === "boolean"){
-		where += ` AND Drilling = '${drilling?"true":"false"}' `;
-	}
-	if( tattoos && typeof tattoos === "boolean"){
-		where += ` AND Tattoos = '${tattoos?"true":"false"}' `;
-	}
-	return where;
+
+	addLikeCondition('ActorName', name);
+	addCondition('Ethinicity',ethnicity);
+	addCondition('Nationality',nationality)
+	addCondition('BirthPlace',birthPlace);
+	addCondition('HairColor',hairColor);
+	addBooleanCondition('NaturalBoobs',naturalBoobs);
+	addBooleanCondition('Drilling',drilling);
+	addBooleanCondition('Tattoos',tattoos);
+
+	return {
+		where: conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '',
+		values: values
+	};
+
 }
 
 actorRoutes.get("/", async (c) => {
 	try {
 		const page = Number(c.req.query('page') || 1);
 		const limit = Number(c.req.query('limit') || 10);
-		const where = buildWhere(c);
-		let { results } = await c.env.DB.prepare(` SELECT * FROM Actor WHERE 1=1 ${where} LIMIT ? OFFSET ?` ).bind(limit, (page - 1) * limit).all();
+		const { where, values } = buildWhere(c);
+		let { results } = await c.env.DB.prepare(` SELECT * FROM Actor ${where} LIMIT ? OFFSET ?`).bind(...values, limit, (page - 1) * limit).all();
 		return c.json(results);
 	} catch (e) {
 		console.log(e);
@@ -92,7 +112,7 @@ actorRoutes.post("/:id/videos/:videoId", async (c) => {
 	const userId = c.req.param("id")
 	const videoId = c.req.param("videoId")
 	try {
-		await c.env.DB.prepare("INSERT INTO ActorVideo (ActorId, VideoId) VALUES (?1, ?2)").bind(userId, videoId).run()
+		await c.env.DB.prepare("INSERT INTO ActorVideo (ActorId, VideoId) VALUES (?, ?)").bind(userId, videoId).run()
 		return c.json({ success: true })
 	} catch (e) {
 		console.log(e);

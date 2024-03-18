@@ -55,8 +55,10 @@ actorRoutes.get("/", async (c) => {
 		const page = Number(c.req.query('page') || 1);
 		const limit = Number(c.req.query('limit') || 10);
 		const { where, values } = buildWhere(c);
-		let { results } = await c.env.DB.prepare(` SELECT * FROM Actor ${where} LIMIT ? OFFSET ?`).bind(...values, limit, (page - 1) * limit).all();
-		return c.json(results);
+		const countResult = await c.env.DB.prepare(`SELECT COUNT(*) AS totalRegistros FROM Actor ${where}`).bind(...values).all();
+		const [ total ] = countResult.results;
+		const { results } = await c.env.DB.prepare(`SELECT * FROM Actor ${where} LIMIT ? OFFSET ?`).bind(...values, limit, (page - 1) * limit).all();
+		return c.json({total: total.totalRegistros, results});
 	} catch (e) {
 		console.log(e);
 		return c.json({ err: e }, 500);

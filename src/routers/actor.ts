@@ -69,7 +69,8 @@ actorRoutes.get("/:id", async (c) => {
 	const actorId = c.req.param("id")
 	try {
 		let { results } = await c.env.DB.prepare("SELECT * FROM Actor WHERE ActorId = ?").bind(actorId).all()
-		return c.json(results)
+		if( results.length === 0 ) return c.json({ err: "Actor not found" }, 404)
+		return c.json(results[0])
 	} catch (e) {
 		console.log(e);
 		return c.json({ err: e }, 500)
